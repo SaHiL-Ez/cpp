@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { ConditionalNavbars } from "@/components/ConditionalNavbars";
 import i18n from "@/i18n";
 import { Inter } from "next/font/google";
@@ -14,13 +14,14 @@ import { FarmProvider } from "@/contexts/farm-context";
 
 const inter = Inter({ subsets: ["latin"] });
 
-export default function RootLayout({
+export default function LocaleLayout({
   children,
+  params,
 }: Readonly<{
   children: React.ReactNode;
+  params: { locale: string };
 }>) {
   const pathname = usePathname();
-  const router = useRouter();
 
   useEffect(() => {
     // Set i18n language from URL locale
@@ -50,7 +51,7 @@ export default function RootLayout({
       <body className={`${inter.className} font-body antialiased`}>
         <FarmProvider>
           <div className="flex flex-col min-h-svh">
-            <ConditionalNavbars locale={pathname && pathname.split("/")[1] ? pathname.split("/")[1] : "en"} pathname={pathname ?? undefined} />
+            <ConditionalNavbars locale={params.locale} />
             <main className="flex-1 pb-20 md:pb-24">{children}</main>
             <div className="fixed bottom-20 right-4 z-50">
               <Button

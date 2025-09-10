@@ -1,98 +1,3 @@
-# # filepath: c:\Users\Sahil Kumar\Desktop\Crop\model_api.py
-# from flask import Flask, request, jsonify
-# from flask_cors import CORS
-# import numpy as np
-# from PIL import Image
-# import base64
-# from io import BytesIO
-# import json
-# import tensorflow as tf
-# from tensorflow.keras.models import load_model
-# import os
-
-# app = Flask(__name__)
-# CORS(app)
-
-# # === Config ===
-# MODEL_PATH = r"C:\Users\Sahil Kumar\Desktop\Crop\plant_disease_model_full.h5"
-# LABELS_PATH = r"C:\Users\Sahil Kumar\Desktop\Crop\label_map.json"
-# IMG_SIZE = (224, 224)
-# TOP_K = 3
-
-# # === Load model and labels ===
-# if not os.path.exists(MODEL_PATH):
-#     raise FileNotFoundError(f"Model file not found at {MODEL_PATH}")
-# model = load_model(MODEL_PATH)
-# print("Loaded model:", MODEL_PATH)
-
-# if not os.path.exists(LABELS_PATH):
-#     raise FileNotFoundError(f"Labels file not found at {LABELS_PATH}")
-# with open(LABELS_PATH, "r") as f:
-#     label_map = json.load(f)
-# print(f"Loaded {len(label_map)} labels")
-
-# # === Preprocess function ===
-# def preprocess_image_from_base64(base64_string):
-#     """
-#     Accepts base64 (without data:<mime>;base64, prefix OR with it) and returns
-#     a preprocessed batch ready for model.predict: shape (1, 224,224,3)
-#     """
-#     # If input includes the data URI prefix, strip it
-#     if base64_string.startswith("data:"):
-#         base64_string = base64_string.split(",", 1)[1]
-
-#     img_bytes = base64.b64decode(base64_string)
-#     img = Image.open(BytesIO(img_bytes)).convert("RGB")  # ensure RGB
-#     img = img.resize(IMG_SIZE, Image.BILINEAR)
-#     arr = np.asarray(img).astype("float32")
-
-#     # --- IMPORTANT: Match training preprocessing ---
-#     # YOUR TRAINING: used `image = image / 255.0` (range 0-1)
-#     arr = arr / 255.0
-
-#     # If you actually trained with MobileNetV2's preprocess_input ([-1,1]),
-#     # replace the above line with:
-#     # from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
-#     # arr = preprocess_input(arr)
-
-#     arr = np.expand_dims(arr, axis=0)  # shape (1, H, W, 3)
-#     return arr
-
-# # === Prediction endpoint ===
-# @app.route("/predict", methods=["POST"])
-# def predict():
-#     try:
-#         data = request.get_json(force=True)
-#         if not data or "image" not in data:
-#             return jsonify({"error": "No image provided. Send JSON with key 'image' (base64 string)."}), 400
-
-#         batch = preprocess_image_from_base64(data["image"])
-#         preds = model.predict(batch)  # shape (1, num_classes)
-#         preds = preds[0]  # (num_classes,)
-
-#         top_indices = preds.argsort()[-TOP_K:][::-1]
-#         top_probs = preds[top_indices].tolist()
-#         top_labels = [label_map[str(i)] if str(i) in label_map else label_map[int(i)] for i in top_indices]
-
-#         response = {
-#             "top_k": TOP_K,
-#             "predictions": [
-#                 {"index": int(idx), "label": lbl, "confidence": float(prob)}
-#                 for idx, lbl, prob in zip(top_indices.tolist(), top_labels, top_probs)
-#             ],
-#             # include raw logits/probs if helpful (beware of large JSONs)
-#             "raw_probabilities": preds.tolist()
-#         }
-#         return jsonify(response)
-#     except Exception as e:
-#         # Return the error message to help debugging; remove stack trace in production
-#         return jsonify({"error": str(e)}), 500
-
-# if __name__ == "__main__":
-#     app.run(host="0.0.0.0", port=5000, debug=True)
-
-
-# backend/model_api.py
 """
 Robust model loader + prediction API.
 
@@ -118,6 +23,7 @@ from PIL import Image
 import numpy as np
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from mongo_util import farmers
 
 # optional inspector
 try:
@@ -333,6 +239,41 @@ def predict():
         return jsonify({"top_k": TOP_K, "predictions": resp_preds, "raw_probabilities": preds.tolist()})
     except Exception as ex:
         return jsonify({"error": str(ex)}), 500
+
+# Registration endpoint
+@app.route("/register", methods=["POST"])
+def register():
+    data = request.get_json()
+    name = data.get("name")
+    phone = data.get("phone")
+    location = data.get("location")
+    if not all([name, phone, location]):
+        return jsonify({"error": "All fields required"}), 400
+
+    # Check if phone already exists
+    if farmers.find_one({"phone": phone}):
+        return jsonify({"error": "Phone already registered"}), 409
+
+    farmers.insert_one({"name": name, "phone": phone, "location": location})
+    return jsonify({"success": True}), 201
+
+# Login endpoint
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    phone = data.get("phone")
+    if not phone:
+        return jsonify({"error": "Phone required"}), 400
+
+    farmer = farmers.find_one({"phone": phone})
+    if not farmer:
+        return jsonify({"error": "Invalid phone"}), 401
+
+    return jsonify({"success": True, "farmer": {
+        "name": farmer["name"],
+        "phone": farmer["phone"],
+        "location": farmer["location"]
+    }}), 200
 
 if __name__ == "__main__":
     # Debug mode only for development

@@ -1,4 +1,0 @@
-tensorflow
-flask_cors
-pillow
-keras

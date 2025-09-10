@@ -1,7 +1,6 @@
 
 "use client";
 
-import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import {
@@ -12,6 +11,11 @@ import {
   Map,
 } from "lucide-react";
 
+interface NavProps {
+  locale: string;
+  pathname?: string;
+}
+
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/crop-advisory", label: "Advisory", icon: Languages },
@@ -20,27 +24,36 @@ const navItems = [
   { href: "/market-prices", label: "Markets", icon: LineChart },
 ];
 
-export function Nav() {
-  const pathname = usePathname();
+export function Nav({ locale, pathname }: NavProps) {
+  if (pathname === undefined) {
+    if (typeof window !== "undefined") {
+      pathname = window.location.pathname;
+    } else {
+      pathname = "";
+    }
+  }
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm">
       <div className="container mx-auto px-4">
         <ul className="flex justify-around items-center h-16">
-          {navItems.map((item) => (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-1 text-muted-foreground transition-colors hover:text-primary w-20",
-                   pathname === item.href ? "text-primary" : "text-muted-foreground",
-                )}
-              >
-                <item.icon className="h-6 w-6" />
-                <span className="text-xs font-medium">{item.label}</span>
-              </Link>
-            </li>
-          ))}
+          {navItems.map((item) => {
+            const href = item.href === "/" ? `/${locale}/dashboard` : `/${locale}${item.href}`;
+            return (
+              <li key={item.href}>
+                <Link
+                  href={href}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-1 text-muted-foreground transition-colors hover:text-primary w-20",
+                    pathname === href ? "text-primary" : "text-muted-foreground"
+                  )}
+                >
+                  <item.icon className="h-6 w-6" />
+                  <span className="text-xs font-medium">{item.label}</span>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </div>
