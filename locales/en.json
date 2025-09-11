@@ -60,5 +60,12 @@
   "Pest & Disease Detection": "Pest & Disease Detection",
   "Upload a photo to identify crop issues.": "Upload a photo to identify crop issues.",
   "Crop Health Map": "Crop Health Map",
-  "View satellite NDVI map of your farm.": "View satellite NDVI map of your farm."
+  "View satellite NDVI map of your farm.": "View satellite NDVI map of your farm.",
+  "use_current_location": "Use Current Location",
+  "fetching_location": "Fetching location...",
+  "geolocation_not_supported": "Geolocation is not supported by your browser.",
+  "location_fetched": "Location fetched successfully.",
+  "location_fetch_failed": "Failed to fetch location.",
+  "location_permission_denied": "Location permission denied.",
+  "allow_location_permission": "Please allow location permission to use this feature."
 }
