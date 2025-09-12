@@ -4,13 +4,12 @@ import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Bot, Loader2, Send, Sparkles, User, Volume2 } from "lucide-react";
+import { Bot, Loader2, Mic, Send, Sparkles, User, Volume2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -30,9 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  multilingualChatbot,
-} from "@/ai/flows/multilingual-chatbot";
+import { multilingualChatbot } from "@/ai/flows/multilingual-chatbot";
 import { textToSpeech } from "@/ai/flows/text-to-speech";
 import { useToast } from "@/hooks/use-toast";
 
@@ -45,6 +42,13 @@ type Message = {
   content: string;
 };
 
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
+
 export default function AiChatbotPage() {
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -53,6 +57,8 @@ export default function AiChatbotPage() {
   const [speakingMessage, setSpeakingMessage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -68,18 +74,79 @@ export default function AiChatbotPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-  
-    useEffect(() => {
+
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage && lastMessage.role === "assistant" && !loading) {
+      handleSpeak(lastMessage.content);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, loading]);
+
+  useEffect(() => {
     if (audioPlayer) {
       const handleAudioEnd = () => setSpeakingMessage(null);
-      audioPlayer.addEventListener('ended', handleAudioEnd);
+      audioPlayer.addEventListener("ended", handleAudioEnd);
       return () => {
-        audioPlayer.removeEventListener('ended', handleAudioEnd);
+        audioPlayer.removeEventListener("ended", handleAudioEnd);
       };
     }
   }, [audioPlayer]);
 
+  useEffect(() => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = "en-US";
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        form.setValue("message", transcript);
+        form.handleSubmit(onSubmit)();
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error("Speech recognition error", event.error);
+        toast({
+          variant: "destructive",
+          title: "Speech Error",
+          description: `Could not recognize speech: ${event.error}`,
+        });
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Browser not supported",
+        description: "Your browser does not support speech recognition.",
+      });
+    }
+  }, [form, toast]);
+
+  const handleListen = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    } else {
+      recognitionRef.current?.start();
+    }
+  };
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (values.message.trim() === "") return;
     setLoading(true);
     const userMessage: Message = { role: "user", content: values.message };
     setMessages((prev) => [...prev, userMessage]);
@@ -106,14 +173,19 @@ export default function AiChatbotPage() {
       setLoading(false);
     }
   }
-  
+
   const handleSpeak = async (text: string) => {
-    if (speakingMessage === text) {
-        audioPlayer?.pause();
-        setSpeakingMessage(null);
-        return;
+    if (audioPlayer) {
+      audioPlayer.pause();
+      setSpeakingMessage(null);
     }
-    
+
+    if (speakingMessage === text) {
+      audioPlayer?.pause();
+      setSpeakingMessage(null);
+      return;
+    }
+
     setSpeakingMessage(text);
     try {
       const result = await textToSpeech(text);
@@ -121,11 +193,11 @@ export default function AiChatbotPage() {
       setAudioPlayer(audio);
       audio.play();
     } catch (error) {
-      console.error('Error with text-to-speech:', error);
+      console.error("Error with text-to-speech:", error);
       toast({
-        variant: 'destructive',
-        title: 'Speech Error',
-        description: 'Could not generate audio for this message.',
+        variant: "destructive",
+        title: "Speech Error",
+        description: "Could not generate audio for this message.",
       });
       setSpeakingMessage(null);
     }
@@ -145,8 +217,8 @@ export default function AiChatbotPage() {
         <Card className="flex flex-col h-[70vh]">
           <CardHeader className="flex flex-row items-center justify-between">
             <div className="flex items-center gap-2">
-                 <Sparkles className="text-accent h-6 w-6" />
-                 <CardTitle>AgriBot</CardTitle>
+              <Sparkles className="text-accent h-6 w-6" />
+              <CardTitle>AgriBot</CardTitle>
             </div>
             <div className="w-48">
               <Select value={language} onValueChange={setLanguage}>
@@ -186,14 +258,18 @@ export default function AiChatbotPage() {
                   }`}
                 >
                   <p className="text-sm">{message.content}</p>
-                   {message.role === 'assistant' && (
+                  {message.role === "assistant" && (
                     <Button
                       size="icon"
                       variant="ghost"
                       className="absolute -right-11 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground"
                       onClick={() => handleSpeak(message.content)}
                     >
-                      {speakingMessage === message.content ? <Loader2 className="h-4 w-4 animate-spin"/> : <Volume2 className="h-4 w-4" />}
+                      {speakingMessage === message.content ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Volume2 className="h-4 w-4" />
+                      )}
                     </Button>
                   )}
                 </div>
@@ -206,7 +282,7 @@ export default function AiChatbotPage() {
                 )}
               </div>
             ))}
-             {loading && (
+            {loading && (
               <div className="flex items-start gap-3">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback>
@@ -224,25 +300,50 @@ export default function AiChatbotPage() {
             <Form {...form}>
               <form
                 onSubmit={form.handleSubmit(onSubmit)}
-                className="flex w-full items-center gap-2"
+                className="flex w-full items-center gap-4"
               >
-                <FormField
-                  control={form.control}
-                  name="message"
-                  render={({ field }) => (
-                    <FormItem className="flex-1">
-                      <FormControl>
-                        <Input
-                          placeholder="Type your message..."
-                          autoComplete="off"
-                          {...field}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" size="icon" disabled={loading}>
-                  <Send className="h-4 w-4" />
+                <div className="relative flex-1">
+                  <FormField
+                    control={form.control}
+                    name="message"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Input
+                            placeholder={
+                              isListening
+                                ? "Listening..."
+                                : "Type your message..."
+                            }
+                            autoComplete="off"
+                            {...field}
+                            className="pr-12"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    onClick={handleListen}
+                    disabled={loading}
+                    className="absolute right-2 top-1/2 -translate-y-1/2"
+                  >
+                    {isListening ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Mic className="h-5 w-5" />
+                    )}
+                  </Button>
+                </div>
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={loading}
+                  className="w-11 h-11"
+                >
+                  <Send className="h-5 w-5" />
                 </Button>
               </form>
             </Form>
