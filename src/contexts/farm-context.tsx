@@ -23,7 +23,11 @@ export type Weather = {
 export type Farm = {
   id: string;
   name: string;
-  location: string;
+  location: {
+    name: string;
+    lat: number;
+    lng: number;
+  };
   icon: React.ElementType;
   image: {
     src: string;
@@ -33,7 +37,6 @@ export type Farm = {
   crops: Crop[];
   weather: Weather;
   bbox: [number, number, number, number];
-  center: [number, number];
   fieldGeoJson: Feature;
 };
 
@@ -41,7 +44,11 @@ const farmsData: Farm[] = [
   {
     id: "farm1",
     name: "Green Valley Farms",
-    location: "Delhi Test Field",
+    location: {
+      name: "Delhi Test Field",
+      lat: 28.6525,
+      lng: 77.1025,
+    },
     icon: Trees,
     image: {
       src: "https://picsum.photos/600/400",
@@ -62,7 +69,6 @@ const farmsData: Farm[] = [
       humidity: "60%",
     },
     bbox: [77.1000, 28.6500, 77.1050, 28.6550],
-    center: [28.6525, 77.1025],
     fieldGeoJson: {
       "type": "Feature",
       "properties": {
@@ -85,7 +91,11 @@ const farmsData: Farm[] = [
   {
     id: "farm2",
     name: "Sunshine Acres",
-    location: "Solapur, Maharashtra",
+    location: {
+      name: "Solapur, Maharashtra",
+      lat: 17.65,
+      lng: 75.85,
+    },
     icon: Sun,
     image: {
       src: "https://picsum.photos/600/401",
@@ -106,7 +116,6 @@ const farmsData: Farm[] = [
       humidity: "45%",
     },
     bbox: [75.8, 17.6, 75.9, 17.7],
-    center: [17.65, 75.85],
     fieldGeoJson: {
       "type": "Feature",
       "properties": { "name": "sunshine-field-1" },
@@ -116,7 +125,11 @@ const farmsData: Farm[] = [
   {
     id: "farm3",
     name: "Mountain View Orchards",
-    location: "Kolhapur, Maharashtra",
+    location: {
+      name: "Kolhapur, Maharashtra",
+      lat: 16.65,
+      lng: 74.25,
+    },
     icon: Mountain,
     image: {
       src: "https://picsum.photos/601/400",
@@ -137,7 +150,6 @@ const farmsData: Farm[] = [
       humidity: "70%",
     },
     bbox: [74.2, 16.6, 74.3, 16.7],
-    center: [16.65, 74.25],
     fieldGeoJson: {
       "type": "Feature",
       "properties": { "name": "mountain-field-1" },
