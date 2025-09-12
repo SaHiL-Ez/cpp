@@ -8,6 +8,8 @@ interface ConditionalNavbarsProps {
   pathname?: string;
 }
 
+const VALID_LOCALES = ["en", "hi", "es", "pa"];
+
 export function ConditionalNavbars({ locale, pathname }: ConditionalNavbarsProps) {
   // Determine current pathname if not provided
   if (pathname === undefined) {
@@ -23,11 +25,14 @@ export function ConditionalNavbars({ locale, pathname }: ConditionalNavbarsProps
     return null;
   }
 
+  // Validate the locale and default to 'en' if invalid
+  const validatedLocale = VALID_LOCALES.includes(locale) ? locale : "en";
+
   // Show navbars on all other pages
   return (
     <>
-      <Header locale={locale} />
-      <Nav locale={locale} />
+      <Header locale={validatedLocale} />
+      <Nav locale={validatedLocale} />
     </>
   );
 }

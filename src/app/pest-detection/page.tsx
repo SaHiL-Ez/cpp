@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { Loader2, ScanEye, Sparkles, Upload, X } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
@@ -19,12 +19,20 @@ import {
   type DetectPestDiseaseOutput,
 } from "@/ai/flows/pest-disease-detection";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { fetchRemediesAndPesticides, type RemedyOrPesticide } from "@/ai/flows/gemini-api";
 
 export default function PestDetectionPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DetectPestDiseaseOutput | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [dataUri, setDataUri] = useState<string | null>(null);
+  const [remediesAndPesticides, setRemediesAndPesticides] = useState<RemedyOrPesticide[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -80,6 +88,21 @@ export default function PestDetectionPage() {
         fileInputRef.current.value = "";
     }
   };
+
+  useEffect(() => {
+    if (result?.detected) {
+      fetchRemediesAndPesticides(result.PestOrDisease)
+        .then(setRemediesAndPesticides)
+        .catch((error) => {
+          console.error("Failed to fetch remedies:", error);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to fetch remedies. Please try again later.",
+          });
+        });
+    }
+  }, [result]);
 
   return (
     <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
@@ -186,6 +209,31 @@ export default function PestDetectionPage() {
               </div>
                 </>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {result?.detected && remediesAndPesticides.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Suggested Remedies & Pesticides</CardTitle>
+              <CardDescription>
+                Below are some recommended solutions for the detected issue.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Accordion type="single" collapsible>
+                {remediesAndPesticides.map((item, index) => (
+                  <AccordionItem key={index} value={item.name}>
+                    <AccordionTrigger>{item.name} {item.type === "natural" && <span className="ml-2 text-green-500">(Go Natural)</span>}</AccordionTrigger>
+                    <AccordionContent>
+                      <p><strong>Instructions:</strong> {item.instructions}</p>
+                      <p><strong>Amount:</strong> {item.amount}</p>
+                      <p><strong>Usage:</strong> {item.usage}</p>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             </CardContent>
           </Card>
         )}
